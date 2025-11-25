@@ -152,8 +152,9 @@ graph = builder.compile(checkpointer=checkpointer)
 # INITIAL EXECUTION
 # ==================================================================
 
+thread_id = "doc_review_001"
 
-config = {"configurable": {"thread_id": "doc_review_001"}}
+config = {"configurable": {"thread_id": thread_id}}
 
 initial_input = {
     "document_title": "Q4 Sales Report",
@@ -211,7 +212,7 @@ current_state = graph.get_state(config)
 # ==================================================================
 # PART 1b: VIEWING STATE HISTORY
 # ==================================================================
-
+"""
 print("-"* 50)
 print("Full State History:")
 print("-"* 50)
@@ -224,9 +225,76 @@ print(f"Total Checkpoints: {total_checkpoints}")
 print("Checkpoint Timeline (newest to oldest)")
 print("=" * 50)
 
-for i, checkpoint in enumerate(history):
+ for i, checkpoint in enumerate(history):
 
     print("\n\n" + "*" * 30)
     print(f"Checkpoint Snapshot: {total_checkpoints - i}:")
     print("*" * 30)
-    print_snapshot_data(checkpoint)
+    print_snapshot_data(checkpoint) """
+
+
+# ==================================================================
+# PART 2: REPLAYING STATE (From 'analyze')
+# ==================================================================
+
+""" history = list(graph.get_state_history(config))
+
+# From our history, analyze is the 4th checkpoint
+# input -> _start_ -> intake -> analyze
+analyze_checkpointer = history[3]
+
+# Get the checkpointer_id
+analyze_checkpointer_id = analyze_checkpointer.config["configurable"]["checkpoint_id"]
+
+# to replay, you need to create a config that contains the thread id and the checkpoint id for where you want to replay from
+
+replay_config = {
+    "configurable": {
+        "thread_id": thread_id,
+        "checkpoint_id": analyze_checkpointer_id
+    }
+}
+
+print(f"\n📍 Replaying from: {analyze_checkpointer_id[:8]}...")
+print("This will re-execute: analyze → revise → analyze → finalize")
+
+# To replay, you pass empty data and the replay configuration
+replay = graph.invoke(None, replay_config)
+
+print(f"✅ Replay Complete")
+print(f"Final Stage: {replay['processing_stage']}")
+print(f"Quality Score: {replay['quality_score']}/10") """
+
+# ==================================================================
+# PART 3: UPDATING STATE (Manual Override)
+# ==================================================================
+
+current_state = graph.get_state(config)
+
+print("-" * 50)
+print("Current State (before manual update)")
+print("-" * 50)
+print_snapshot_data(current_state)
+
+# Perform update
+print("\n📝 Scenario A: Manual Override - Approve Document")
+print("(Simulating human reviewer overriding the quality score)")
+
+graph.update_state(
+    config,
+    {
+        "quality_score": 9,
+        "approved": True,
+        "processing_stage": "manually_approved",
+        "issues_found": []  # Clear issues after manual review
+    }
+)
+
+updated_state = graph.get_state(config)
+
+print("-" * 50)
+print("Updated State (after manual update)")
+print("-" * 50)
+print_snapshot_data(updated_state)
+
+
